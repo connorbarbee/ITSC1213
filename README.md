@@ -3,4 +3,4 @@ CSII Projects
 
 Labs and Projects for later review will be stored here. 
 
-For educational purposes. Mainly includes Java.
+Strictly for educational purposes. Primarily includes Java as well as C++.
