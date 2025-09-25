@@ -1,0 +1,55 @@
+// Project Selected: Pet Adoption Management System
+//Project Goals
+
+// 1) Problem Analysis
+// Goal: Build a software system for a pet adoption center to:
+//  - Track pet profiles (including medical history and adoption status).
+//  - Allow adopters to submit applications for pets.
+//  - Enable staff to review and approve/deny applications.
+//  - Generate reports on adopted and available pets.
+
+// Key Data Components:
+//  - Pet: id, name, species, breed, age, medical_history, status
+//  - User: id, name, contact_info, role (adopter | staff)
+//  - AdoptionApplication: id, pet, adopter, status, submission_date
+//  - Reports: listings for adopted and available pets
+
+// Key Behaviors:
+//  - Pet profiles: create, update, view; change status (e.g., AVAILABLE, PENDING, ADOPTED)
+//  - Applications: submit, track by adopter; review, approve/deny by staff
+//  - Reporting: generate live views of adopted/available pets
+
+// Method Signatures (reference only; to be implemented later):
+// class Pet {
+//   view_profile()
+//   update_profile(data)
+//   change_status(new_status)
+// }
+// class User {
+//   submit_application(pet_id)
+//   view_applications()
+//   review_applications()        // staff only
+//   approve_application(app_id)  // staff only
+//   deny_application(app_id)     // staff only
+// }
+// class AdoptionApplication {
+//   update_status(new_status)
+//   get_details()
+// }
+// class Report {
+//   generate_adopted_pets_report()
+//   generate_available_pets_report()
+// }
+
+// 3) Anticipated Challenges & Strategies
+// - Role-based access (adopter vs staff):
+//     * Strategy: Enforce authorization checks; restrict review/approve/deny to staff.
+// - Data validation (complete, accurate submissions):
+//     * Strategy: Validate inputs at boundaries (forms, API) and within domain methods.
+// - Application workflow (status transitions):
+//     * Strategy: Centralize allowed state changes; guard invalid transitions.
+// - Reporting accuracy and freshness:
+//     * Strategy: Use dynamic queries or views; avoid stale cached snapshots unless invalidated.
+// - Clear problem analysis; identified components and behaviors
+// - Initial system structure and method signatures
+// - Challenges listed with mitigation strategies
