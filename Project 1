@@ -19,7 +19,7 @@
 //  - Applications: submit, track by adopter; review, approve/deny by staff
 //  - Reporting: generate live views of adopted/available pets
 
-// Method Signatures (reference only; to be implemented later):
+// Method Signatures (reference only, to be implemented later):
 // class Pet {
 //   view_profile()
 //   update_profile(data)
@@ -41,15 +41,15 @@
 //   generate_available_pets_report()
 // }
 
-// 3) Anticipated Challenges & Strategies
-// - Role-based access (adopter vs staff):
-//     * Strategy: Enforce authorization checks; restrict review/approve/deny to staff.
-// - Data validation (complete, accurate submissions):
-//     * Strategy: Validate inputs at boundaries (forms, API) and within domain methods.
-// - Application workflow (status transitions):
-//     * Strategy: Centralize allowed state changes; guard invalid transitions.
-// - Reporting accuracy and freshness:
-//     * Strategy: Use dynamic queries or views; avoid stale cached snapshots unless invalidated.
+// 3) Challenges & Strategies
+//  Role-based access (adopter vs staff):
+//  Strategy: Enforce authorization checks; restrict review/approve/deny to staff.
+//  Data validation (complete, accurate submissions):
+//  Strategy: Validate inputs at boundaries (forms, API) and within domain methods.
+//  Application workflow (status transitions):
+//  Strategy: Centralize allowed state changes; guard invalid transitions.
+
+//   Strategy: Use dynamic queries or views; avoid stale cached snapshots unless invalidated.
 // - Clear problem analysis; identified components and behaviors
 // - Initial system structure and method signatures
 // - Challenges listed with mitigation strategies
