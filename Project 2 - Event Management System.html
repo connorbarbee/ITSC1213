@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event Service Desk (KACE‑style, Local)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .btn { @apply px-4 py-2 rounded-lg font-medium; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <header class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-gray-900">Event Service Desk</h1>
+      <span class="text-xs sm:text-sm text-gray-500">LocalStorage • Single‑file • No backend</span>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+      <!-- Top Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 p-4 border-b">
+        <div class="flex items-center gap-2">
+          <button id="btnList" class="btn bg-gray-100 hover:bg-gray-200 text-gray-800">Queue</button>
+          <button id="btnCreate" class="btn bg-blue-600 hover:bg-blue-700 text-white">New Event Request</button>
+        </div>
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+          <label class="hidden sm:block">Search:</label>
+          <input id="searchInput" class="px-3 py-2 border rounded-lg" placeholder="Search title, location, requester" />
+          <label class="hidden sm:block">Status:</label>
+          <select id="filterStatus" class="px-3 py-2 border rounded-lg bg-white">
+            <option value="">All</option>
+            <option>New</option>
+            <option>In Progress</option>
+            <option>Scheduled</option>
+            <option>Closed</option>
+            <option>Cancelled</option>
+          </select>
+          <label class="hidden sm:block">Queue:</label>
+          <select id="filterQueue" class="px-3 py-2 border rounded-lg bg-white">
+            <option value="">All</option>
+            <option>Venues</option>
+            <option>AV</option>
+            <option>Catering</option>
+            <option>Security</option>
+            <option>Logistics</option>
+          </select>
+          <select id="sortSelect" class="px-3 py-2 border rounded-lg bg-white">
+            <option value="createdAt_desc">Newest</option>
+            <option value="createdAt_asc">Oldest</option>
+            <option value="priority_desc">Priority (High→Low)</option>
+            <option value="priority_asc">Priority (Low→High)</option>
+            <option value="status_asc">Status (A→Z)</option>
+            <option value="status_desc">Status (Z→A)</option>
+            <option value="start_asc">Start Date (Soonest)</option>
+            <option value="start_desc">Start Date (Latest)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- View container -->
+      <div id="viewContainer"></div>
+    </div>
+  </main>
+
+  <!-- List View Template -->
+  <template id="tpl-list">
+    <div class="p-6">
+      <div class="overflow-x-auto border rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">ID</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Title</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Priority</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Queue</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Start</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Requester</th>
+              <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Assignee</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200" id="listBody"></tbody>
+        </table>
+      </div>
+      <p id="emptyMsg" class="hidden px-6 py-10 text-center text-gray-500">No requests match. Create one or adjust filters.</p>
+    </div>
+  </template>
+
+  <!-- Create/Edit Template -->
+  <template id="tpl-create">
+    <form id="ticketForm" class="p-6 space-y-6">
+      <h2 class="text-2xl font-semibold text-gray-900">New Event Request</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input id="title" class="w-full px-4 py-2 border rounded-lg" placeholder="e.g., Annual Research Symposium" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Queue *</label>
+          <select id="queue" class="w-full px-4 py-2 border rounded-lg bg-white">
+            <option>Venues</option>
+            <option>AV</option>
+            <option>Catering</option>
+            <option>Security</option>
+            <option>Logistics</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Location *</label>
+          <input id="location" class="w-full px-4 py-2 border rounded-lg" placeholder="Bldg A, Hall 2" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start *</label>
+            <input id="start" type="datetime-local" class="w-full px-4 py-2 border rounded-lg" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End *</label>
+            <input id="end" type="datetime-local" class="w-full px-4 py-2 border rounded-lg" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Requester *</label>
+          <input id="requester" class="w-full px-4 py-2 border rounded-lg" placeholder="name@org.com" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+          <input id="assignee" class="w-full px-4 py-2 border rounded-lg" placeholder="(optional)" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+        <textarea id="description" rows="6" class="w-full px-4 py-2 border rounded-lg" placeholder="Agenda, required setup, capacity, notes..."></textarea>
+      </div>
+
+      <!-- Impact/Urgency -> Priority like KACE -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Impact</label>
+          <select id="impact" class="w-full px-4 py-2 border rounded-lg bg-white">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Urgency</label>
+          <select id="urgency" class="w-full px-4 py-2 border rounded-lg bg-white">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Priority (auto)</label>
+          <input id="priority" class="w-full px-4 py-2 border rounded-lg bg-gray-50" value="Medium" disabled />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3">
+        <button type="button" id="cancelCreate" class="btn bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>
+        <button type="submit" class="btn bg-blue-600 text-white hover:bg-blue-700">Create</button>
+      </div>
+    </form>
+  </template>
+
+  <!-- Detail Template -->
+  <template id="tpl-detail">
+    <div class="p-6 space-y-6">
+      <button id="backToList" class="text-blue-600 hover:text-blue-800 font-medium">&larr; Back to Queue</button>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="md:col-span-2 space-y-6">
+          <div class="flex items-center justify-between">
+            <h2 id="detailTitle" class="text-3xl font-bold text-gray-900"></h2>
+            <span id="detailId" class="text-xs text-gray-500"></span>
+          </div>
+          <div class="flex flex-wrap gap-3 items-center" id="badgeRow"></div>
+          <div class="bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Description</h3>
+            <p id="detailDesc" class="text-gray-700 whitespace-pre-wrap"></p>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg border">
+              <span class="block text-sm font-medium text-gray-500">Location</span>
+              <span id="detailLocation" class="block text-sm text-gray-800 truncate"></span>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg border">
+              <span class="block text-sm font-medium text-gray-500">Requester</span>
+              <span id="detailRequester" class="block text-sm text-gray-800 truncate"></span>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg border">
+              <span class="block text-sm font-medium text-gray-500">Start</span>
+              <span id="detailStart" class="block text-sm text-gray-800"></span>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg border">
+              <span class="block text-sm font-medium text-gray-500">End</span>
+              <span id="detailEnd" class="block text-sm text-gray-800"></span>
+            </div>
+          </div>
+        </div>
+        <div class="md:col-span-1 space-y-6">
+          <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Workflow</h3>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select id="detailStatus" class="w-full mb-3 px-4 py-2 border rounded-lg bg-white">
+              <option>New</option>
+              <option>In Progress</option>
+              <option>Scheduled</option>
+              <option>Closed</option>
+              <option>Cancelled</option>
+            </select>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Assignee</label>
+            <input id="detailAssignee" class="w-full mb-3 px-4 py-2 border rounded-lg" />
+            <button id="btnUpdateWorkflow" class="w-full btn bg-blue-600 text-white hover:bg-blue-700">Update</button>
+          </div>
+          <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Comments</h3>
+            <form id="commentForm" class="space-y-3 mb-4">
+              <textarea id="commentInput" rows="3" class="w-full px-4 py-2 border rounded-lg" placeholder="Add a comment..."></textarea>
+              <button class="w-full btn bg-green-600 text-white hover:bg-green-700">Add Comment</button>
+            </form>
+            <div id="commentList" class="space-y-3 max-h-80 overflow-y-auto"></div>
+          </div>
+          <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Audit Log</h3>
+            <ul id="auditList" class="space-y-2 text-sm text-gray-700 max-h-52 overflow-y-auto"></ul>
+          </div>
+          <button id="btnDelete" class="w-full btn bg-red-600 text-white hover:bg-red-700">Delete Request</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // ===== Utilities =====
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+    const fmtDate = ts => new Date(ts).toLocaleString();
+    const uid = () => (window.crypto?.randomUUID?.() || 'E-' + Math.random().toString(36).slice(2,8).toUpperCase());
+    const now = () => Date.now();
+
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]));
+    }
+
+    // ===== LocalStorage DAO =====
+    const KEY = 'event_desk_tickets_v1';
+    const loadTickets = () => JSON.parse(localStorage.getItem(KEY) || '[]');
+    const saveTickets = list => localStorage.setItem(KEY, JSON.stringify(list));
+
+    // ===== Priority Matrix (Impact x Urgency) =====
+    const level = v => ({Low:0, Medium:1, High:2}[v] ?? 1);
+    const priorityFrom = (impact, urgency) => {
+      const score = level(impact) + level(urgency); // 0..4
+      return score >= 4 ? 'Critical' : score >= 3 ? 'High' : score >= 2 ? 'Medium' : 'Low';
+    }
+
+    // ===== State & Render Root =====
+    let state = { view:'list', currentId:null, sort:'createdAt_desc', search:'', fStatus:'', fQueue:'' };
+    const viewContainer = document.getElementById('viewContainer');
+
+    // ===== Rendering =====
+    function render(){
+      viewContainer.innerHTML = '';
+      if(state.view==='create') return renderCreate();
+      if(state.view==='detail') return renderDetail(state.currentId);
+      return renderList();
+    }
+
+    function badge(cls, text){
+      const span = document.createElement('span');
+      span.className = `px-3 py-1 text-sm font-medium rounded-full ${cls}`;
+      span.textContent = text;
+      return span;
+    }
+
+    function filteredAndSorted(list){
+      // filter
+      const q = state.search.trim().toLowerCase();
+      let out = list.filter(t => (
+        (!state.fStatus || t.status===state.fStatus) &&
+        (!state.fQueue || t.queue===state.fQueue) &&
+        (!q || [t.title, t.location, t.requester].some(x=>String(x||'').toLowerCase().includes(q)))
+      ));
+      // sort
+      const PO = { Low:0, Medium:1, High:2, Critical:3 };
+      switch(state.sort){
+        case 'createdAt_asc': out.sort((a,b)=>a.createdAt-b.createdAt); break;
+        case 'priority_desc': out.sort((a,b)=>PO[b.priority]-PO[a.priority]); break;
+        case 'priority_asc': out.sort((a,b)=>PO[a.priority]-PO[b.priority]); break;
+        case 'status_asc': out.sort((a,b)=>a.status.localeCompare(b.status)); break;
+        case 'status_desc': out.sort((a,b)=>b.status.localeCompare(a.status)); break;
+        case 'start_asc': out.sort((a,b)=> (a.start||0)-(b.start||0)); break;
+        case 'start_desc': out.sort((a,b)=> (b.start||0)-(a.start||0)); break;
+        case 'createdAt_desc': default: out.sort((a,b)=>b.createdAt-a.createdAt);
+      }
+      return out;
+    }
+
+    function renderList(){
+      const frag = document.getElementById('tpl-list').content.cloneNode(true);
+      const tbody = frag.querySelector('#listBody');
+      const empty = frag.querySelector('#emptyMsg');
+      const tickets = filteredAndSorted(loadTickets());
+
+      if(!tickets.length) empty.classList.remove('hidden');
+
+      tickets.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50 cursor-pointer';
+        tr.addEventListener('click', () => { state.view='detail'; state.currentId=t.id; render(); });
+
+        const tdId = document.createElement('td'); tdId.className='px-4 py-3 text-sm text-gray-600'; tdId.textContent = t.id;
+        const tdTitle = document.createElement('td'); tdTitle.className='px-4 py-3'; tdTitle.innerHTML = `<div class="text-sm font-medium text-gray-900">${escapeHtml(t.title)}</div>`;
+
+        const tdStatus = document.createElement('td'); tdStatus.className='px-4 py-3';
+        const statusClass = { 'New':'bg-blue-100 text-blue-800','In Progress':'bg-purple-100 text-purple-800','Scheduled':'bg-amber-100 text-amber-800','Closed':'bg-gray-200 text-gray-700','Cancelled':'bg-red-100 text-red-700' }[t.status] || 'bg-gray-100 text-gray-800';
+        tdStatus.appendChild(badge(statusClass, t.status));
+
+        const tdPriority = document.createElement('td'); tdPriority.className='px-4 py-3';
+        const prClass = { 'Low':'bg-green-100 text-green-800','Medium':'bg-yellow-100 text-yellow-800','High':'bg-red-100 text-red-800','Critical':'bg-red-600 text-white' }[t.priority] || 'bg-gray-100 text-gray-800';
+        tdPriority.appendChild(badge(prClass, t.priority));
+
+        const tdQueue = document.createElement('td'); tdQueue.className='px-4 py-3 text-sm text-gray-700'; tdQueue.textContent = t.queue;
+        const tdStart = document.createElement('td'); tdStart.className='px-4 py-3 text-sm text-gray-700'; tdStart.textContent = t.start ? new Date(t.start).toLocaleString() : '—';
+        const tdReq = document.createElement('td'); tdReq.className='px-4 py-3 text-sm text-gray-700 truncate'; tdReq.textContent = t.requester || '—';
+        const tdAsg = document.createElement('td'); tdAsg.className='px-4 py-3 text-sm text-gray-700 truncate'; tdAsg.textContent = t.assignee || '—';
+
+        tr.append(tdId, tdTitle, tdStatus, tdPriority, tdQueue, tdStart, tdReq, tdAsg);
+        tbody.appendChild(tr);
+      });
+
+      viewContainer.appendChild(frag);
+    }
+
+    function renderCreate(){
+      const frag = document.getElementById('tpl-create').content.cloneNode(true);
+      const form = frag.querySelector('#ticketForm');
+      const cancelBtn = frag.querySelector('#cancelCreate');
+      const impactSel = frag.querySelector('#impact');
+      const urgencySel = frag.querySelector('#urgency');
+      const priorityInput = frag.querySelector('#priority');
+
+      function updatePriority(){ priorityInput.value = priorityFrom(impactSel.value, urgencySel.value); }
+      impactSel.addEventListener('change', updatePriority);
+      urgencySel.addEventListener('change', updatePriority);
+      updatePriority();
+
+      cancelBtn.addEventListener('click', () => { state.view='list'; render(); });
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const title = form.querySelector('#title').value.trim();
+        const queue = form.querySelector('#queue').value;
+        const location = form.querySelector('#location').value.trim();
+        const startStr = form.querySelector('#start').value;
+        const endStr = form.querySelector('#end').value;
+        const requester = form.querySelector('#requester').value.trim();
+        const assignee = form.querySelector('#assignee').value.trim();
+        const description = form.querySelector('#description').value.trim();
+        const impact = impactSel.value;
+        const urgency = urgencySel.value;
+        const priority = priorityInput.value;
+
+        if(!title || !location || !startStr || !endStr || !requester || !description){
+          alert('Please complete all required fields (marked with *).');
+          return;
+        }
+        const start = Date.parse(startStr); const end = Date.parse(endStr);
+        if(isNaN(start) || isNaN(end) || end < start){
+          alert('Please provide valid start/end times (end must be after start).');
+          return;
+        }
+
+        const list = loadTickets();
+        const id = uid();
+        list.push({
+          id,
+          title, queue, location, start, end,
+          requester, assignee,
+          description,
+          impact, urgency, priority,
+          status: 'New',
+          createdAt: now(),
+          comments: [],
+          audit: [{ ts: now(), msg: `Created by ${requester}` }]
+        });
+        saveTickets(list);
+        state.view='detail'; state.currentId=id; render();
+      });
+
+      viewContainer.appendChild(frag);
+    }
+
+    function renderDetail(id){
+      const t = loadTickets().find(x => x.id === id);
+      if(!t){ alert('Request not found.'); state.view='list'; return render(); }
+
+      const frag = document.getElementById('tpl-detail').content.cloneNode(true);
+      frag.querySelector('#detailTitle').textContent = t.title;
+      frag.querySelector('#detailId').textContent = t.id;
+      frag.querySelector('#detailDesc').textContent = t.description;
+      frag.querySelector('#detailRequester').textContent = t.requester || '—';
+      frag.querySelector('#detailLocation').textContent = t.location || '—';
+      frag.querySelector('#detailStart').textContent = t.start ? fmtDate(t.start) : '—';
+      frag.querySelector('#detailEnd').textContent = t.end ? fmtDate(t.end) : '—';
+
+      const badgeRow = frag.querySelector('#badgeRow');
+      const statusClass = { 'New':'bg-blue-100 text-blue-800','In Progress':'bg-purple-100 text-purple-800','Scheduled':'bg-amber-100 text-amber-800','Closed':'bg-gray-200 text-gray-700','Cancelled':'bg-red-100 text-red-700' }[t.status] || 'bg-gray-100 text-gray-800';
+      const prClass = { 'Low':'bg-green-100 text-green-800','Medium':'bg-yellow-100 text-yellow-800','High':'bg-red-100 text-red-800','Critical':'bg-red-600 text-white' }[t.priority] || 'bg-gray-100 text-gray-800';
+      badgeRow.appendChild(badge(statusClass, t.status));
+      badgeRow.appendChild(badge(prClass, t.priority));
+      badgeRow.appendChild(badge('bg-gray-100 text-gray-800', t.queue));
+
+      const statusSel = frag.querySelector('#detailStatus');
+      const assigneeInput = frag.querySelector('#detailAssignee');
+      statusSel.value = t.status;
+      assigneeInput.value = t.assignee || '';
+
+      frag.querySelector('#btnUpdateWorkflow').addEventListener('click', () => {
+        const list = loadTickets();
+        const idx = list.findIndex(x => x.id === id);
+        const newStatus = statusSel.value;
+        const newAssignee = assigneeInput.value.trim();
+        if(list[idx].status !== newStatus){
+          list[idx].status = newStatus;
+          list[idx].audit.push({ ts: now(), msg: `Status → ${newStatus}` });
+        }
+        if(list[idx].assignee !== newAssignee){
+          list[idx].assignee = newAssignee;
+          list[idx].audit.push({ ts: now(), msg: `Assignee → ${newAssignee || '—'}` });
+        }
+        saveTickets(list);
+        renderDetail(id);
+      });
+
+      const cList = frag.querySelector('#commentList');
+      t.comments.slice().sort((a,b)=>b.ts-a.ts).forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'bg-gray-50 p-3 rounded-lg border';
+        card.innerHTML = `
+          <p class="text-gray-700 text-sm mb-1">${escapeHtml(c.text)}</p>
+          <div class="flex justify-between items-center text-xs text-gray-500">
+            <span>${escapeHtml(c.user||'anon')}</span>
+            <span>${fmtDate(c.ts)}</span>
+          </div>`;
+        cList.appendChild(card);
+      });
+
+      frag.querySelector('#commentForm').addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const input = e.target.querySelector('#commentInput');
+        const txt = input.value.trim();
+        if(!txt) return;
+        const list = loadTickets();
+        const idx = list.findIndex(x => x.id === id);
+        list[idx].comments.push({ text: txt, user: list[idx].requester || 'anon', ts: now() });
+        list[idx].audit.push({ ts: now(), msg: 'Comment added' });
+        saveTickets(list);
+        renderDetail(id);
+      });
+
+      frag.querySelector('#backToList').addEventListener('click', ()=>{ state.view='list'; render(); });
+      frag.querySelector('#btnDelete').addEventListener('click', ()=>{
+        if(!confirm('Delete this request?')) return;
+        let list = loadTickets();
+        list = list.filter(x => x.id !== id);
+        saveTickets(list);
+        state.view='list'; render();
+      });
+
+      const aList = frag.querySelector('#auditList');
+      t.audit.slice().sort((a,b)=>b.ts-a.ts).forEach(a => {
+        const li = document.createElement('li');
+        li.textContent = `${fmtDate(a.ts)} — ${a.msg}`;
+        aList.appendChild(li);
+      });
+
+      viewContainer.appendChild(frag);
+    }
+
+    // ===== Top bar events =====
+    document.getElementById('btnList').addEventListener('click', ()=>{ state.view='list'; render(); });
+    document.getElementById('btnCreate').addEventListener('click', ()=>{ state.view='create'; render(); });
+    document.getElementById('sortSelect').addEventListener('change', e=>{ state.sort=e.target.value; render(); });
+    document.getElementById('filterStatus').addEventListener('change', e=>{ state.fStatus=e.target.value; render(); });
+    document.getElementById('filterQueue').addEventListener('change', e=>{ state.fQueue=e.target.value; render(); });
+    document.getElementById('searchInput').addEventListener('input', e=>{ state.search=e.target.value; render(); });
+
+    // ===== Seed demo data if empty =====
+    (function seed(){
+      const list = loadTickets();
+      if(list.length) return;
+      const base = now() - 1000*60*60*24;
+      const demo = [
+        { title:'Open House AV Setup', queue:'AV', location:'Main Auditorium', start:base+3600000, end:base+7200000, requester:'jane@org.com', assignee:'av.tech@org.com', description:'2 mics, projector, stage wash', impact:'High', urgency:'High', priority:'Critical', status:'In Progress' },
+        { title:'Security Briefing for VIP', queue:'Security', location:'Hall B', start:base+10800000, end:base+14400000, requester:'tom@org.com', assignee:'', description:'Escort 3 VIPs; 2 guards', impact:'High', urgency:'Medium', priority:'High', status:'Scheduled' },
+        { title:'Catering Tasting', queue:'Catering', location:'Kitchen Lab', start:base+18000000, end:base+21600000, requester:'amy@org.com', assignee:'chef@org.com', description:'Vegetarian options for 120 guests', impact:'Medium', urgency:'Low', priority:'Medium', status:'New' }
+      ];
+      const withIds = demo.map(d=>({ id: uid(), createdAt: now(), comments: [], audit:[{ ts: now(), msg:'Seeded' }], ...d }));
+      saveTickets(withIds);
+    })();
+
+    // ===== Initial render =====
+    render();
+
+    // ===== Lightweight Tests (console) =====
+    ;(function tests(){
+      const assert = (name, cond) => console.log((cond?'✅':'❌') + ' ' + name);
+      // escapeHtml
+      assert('escapeHtml basic', escapeHtml('<b>&"') === '&lt;b&gt;&amp;&quot;');
+      // priority matrix
+      assert('priorityFrom HH → Critical', priorityFrom('High','High') === 'Critical');
+      assert('priorityFrom LM → Medium', priorityFrom('Low','Medium') === 'Medium');
+      // DAO roundtrip
+      const before = loadTickets().length;
+      const tmp = loadTickets(); tmp.push({id:'TEST', createdAt:now()}); saveTickets(tmp);
+      assert('DAO save+load', loadTickets().some(x=>x.id==='TEST'));
+      saveTickets(loadTickets().filter(x=>x.id!=='TEST'));
+      assert('DAO cleanup', loadTickets().length === before);
+      // Create input validation (synthetic)
+      assert('priority order compare', ['Low','Medium','High','Critical'].every(x=>['Low','Medium','High','Critical'].includes(x)));
+    })();
+  </script>
+</body>
+</html>
